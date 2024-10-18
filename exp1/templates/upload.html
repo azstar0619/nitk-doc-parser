@@ -64,6 +64,13 @@
                 <li><strong>{{ key }}:</strong> {{ value }}</li>
             {% endfor %}
         </ul>
+
+        <h3>Extracted Tokens:</h3>
+        <ul>
+            {% for token in tokens %}
+                <li>{{ token }}</li>
+            {% endfor %}
+        </ul>
         {% endif %}
     </div>
 </body>

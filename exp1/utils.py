@@ -1,34 +1,60 @@
 import re
+from pdfrw import PdfReader, PdfWriter, PdfName, PdfString
 
-def parse_output(ocr_text):
-    # Initialize an empty dictionary to hold the key-value pairs
+def clean_text(text):
+    """
+    Cleans the OCR text by removing special characters and digits,
+    leaving only lowercase alphabetic characters and spaces.
+    """
+    # Remove special characters and digits
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    text = re.sub(r'\s+', ' ', text)  # Remove extra spaces
+    return text.lower().strip()
+
+def parse_output(text, nlp):
+    """
+    Extracts entities from the OCR text using Named Entity Recognition (NER) and/or regex.
+
+    Args:
+    - text: Cleaned OCR text.
+    - nlp: The loaded spaCy model for NER.
+
+    Returns:
+    - A dictionary of parsed data (entities like names, dates, and other fields).
+    """
+    doc = nlp(text)
     parsed_data = {}
 
-    # Example regex patterns for extracting data. You can modify these based on the structure of your OCR text.
-    patterns = {
-        'Name': r'(?i)(?:name|given name|full name):?\s*([a-zA-Z\s]+)',
-        'Surname': r'(?i)(?:surname|family name):?\s*([\w\s]+)',
-        'Nationality': r'(?i)(?:nationality|citizenship):?\s*([a-zA-Z\s]+)',
-        'Place of Birth': r'(?i)(?:place of birth):?\s*([a-zA-Z\s,]+)',
-        'Date of Birth': r'(?i)(?:date of birth|dob):?\s*(\d{2}/\d{2}/\d{4})',
-        'Place of Issue': r'(?i)(?:place of issue):?\s*([a-zA-Z\s]+)',
-        'Document Expiry': r'(?i)(?:expiry date):?\s*(\d{2}/\d{2}/\d{4})',
-        'Additional Info': r'(?i)(?:additional info|remarks):?\s*(.*)',
-        'Address': r'(?i)(?:address|residential address):?\s*([\w\s,]+)',
-        'Contact Number': r'(?i)(?:contact number|phone number):?\s*([\d\s-]+)',
-        'Email': r'(?i)(?:email|e-mail):?\s*([\w\.-]+@[\w\.-]+)',
-        'Gender': r'(?i)(?:gender):?\s*(male|female|other)',
-        'Marital Status': r'(?i)(?:marital status):?\s*([\w\s]+)',
-        'Occupation': r'(?i)(?:occupation|profession):?\s*([\w\s]+)',
-        'Emergency Contact': r'(?i)(?:emergency contact):?\s*([\w\s,]+)',
-    }
-
-    # Loop through each pattern and try to find matches in the output
-    for key, pattern in patterns.items():
-        match = re.search(pattern, ocr_text)
-        if match:
-            parsed_data[key] = match.group(1).strip()  # Capture and clean the value
-        else:
-            parsed_data[key] = 'Not found'
+    # Extract entities using NER
+    for ent in doc.ents:
+        if ent.label_ in ['PERSON', 'ORG', 'DATE', 'GPE', 'MONEY']:  # Adjust these as needed
+            parsed_data[ent.label_] = ent.text
 
     return parsed_data
+
+def fill_pdf_form(template_path, data):
+    """
+    Fills a PDF form with the parsed data.
+    
+    Args:
+    - template_path: The path to the PDF template.
+    - data: The parsed data to fill in the PDF form.
+
+    Returns:
+    - The path to the filled PDF.
+    """
+    reader = PdfReader(template_path)
+    for page in reader.pages:
+        annotations = page.get('/Annots')
+        if annotations:
+            for annotation in annotations:
+                field_name = annotation.get('/T')
+                if field_name:
+                    field_name = field_name[1:-1]  # Get the field name without parentheses
+                    if field_name in data:
+                        annotation.update({
+                            PdfName("/V"): PdfString(data[field_name])  # Fill with parsed data
+                        })
+    filled_path = template_path.replace(".pdf", "_filled.pdf")
+    PdfWriter(filled_path, trailer=reader).write()
+    return filled_path

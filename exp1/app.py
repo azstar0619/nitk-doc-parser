@@ -1,9 +1,11 @@
 import os
 import pytesseract
+import spacy
 from flask import Flask, render_template, request, url_for
 from werkzeug.utils import secure_filename
 from pdf2image import convert_from_path
-from utils import parse_output  # Assuming parse_output is implemented in utils.py
+from PyPDF2 import PdfReader
+from utils import parse_output, clean_text, fill_pdf_form
 import logging
 
 app = Flask(__name__)
@@ -16,6 +18,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['PROCESSED_IMAGES_FOLDER'] = PROCESSED_IMAGES_FOLDER
 
 logging.basicConfig(level=logging.DEBUG)
+
+# Load spaCy model for NER and Tokenization
+nlp = spacy.load("en_core_web_sm")
 
 # Function to check if the uploaded file is allowed
 def allowed_file(filename):
@@ -33,39 +38,82 @@ def ocr_from_pdf(pdf_path):
         ocr_text += pytesseract.image_to_string(image)
     return ocr_text
 
+# Function to extract text from plain PDF using PyPDF2
+def extract_text_from_pdf(pdf_path):
+    reader = PdfReader(pdf_path)
+    text = ''
+    for page in reader.pages:
+        text += page.extract_text()
+    return text
+
+# Tokenize the text using spaCy
+def tokenize_text(text):
+    """
+    Tokenizes the text using spaCy.
+    Returns a list of tokens.
+    """
+    doc = nlp(text)
+    tokens = [token.text for token in doc]  # Tokenize and extract words
+    return tokens
+
 # Home route
 @app.route('/', methods=['GET', 'POST'])
 def home():
     ocr_text = None
     original_file = None
     parsed_data = None
+    tokens = None
 
     if request.method == 'POST':
         # Handle first file (template) and second file (source for OCR)
         if 'file2' not in request.files:
             return "No file part"
         
-        file1 = request.files['file1']
-        file2 = request.files['file2']
+        file1 = request.files['file1']  # Template file for form filling
+        file2 = request.files['file2']  # Source file for OCR
 
         if file2 and allowed_file(file2.filename):
             original_file = secure_filename(file2.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], original_file)
             file2.save(file_path)
 
-            # Check if the file is a PDF
+            # Check if the file is a PDF or an image
             if file2.filename.rsplit('.', 1)[1].lower() == 'pdf':
-                # Perform OCR on the PDF (convert to image first)
-                ocr_text = ocr_from_pdf(file_path)
+                # Try to extract text from PDF using PyPDF2, if not images
+                try:
+                    ocr_text = extract_text_from_pdf(file_path)
+                except:
+                    # If PyPDF2 fails, fallback to OCR
+                    ocr_text = ocr_from_pdf(file_path)
             else:
                 # Perform OCR on the image (file)
                 ocr_text = pytesseract.image_to_string(file_path)
 
             logging.debug(f"OCR Text: {ocr_text}")
-            
-            # Parse the OCR text
-            parsed_data = parse_output(ocr_text)
+
+            # Clean and preprocess the extracted text
+            clean_text_data = clean_text(ocr_text)
+            logging.debug(f"Cleaned Text: {clean_text_data}")
+
+            # Tokenize the cleaned text
+            tokens = tokenize_text(clean_text_data)
+            logging.debug(f"Tokens: {tokens}")
+
+            # Parse the OCR text using regex and NER
+            parsed_data = parse_output(clean_text_data, nlp)
             logging.debug(f"Parsed Data: {parsed_data}")
+
+            # Fill the PDF form using the parsed data
+            if file1 and allowed_file(file1.filename):
+                template_file = secure_filename(file1.filename)
+                template_path = os.path.join(app.config['UPLOAD_FOLDER'], template_file)
+                file1.save(template_path)
+
+                # Fill the PDF form with parsed data
+                filled_pdf_path = fill_pdf_form(template_path, parsed_data)
+                logging.debug(f"Filled PDF Path: {filled_pdf_path}")
+            else:
+                filled_pdf_path = None
 
             # Save the processed image (just save the original file for now)
             processed_image_path = os.path.join(PROCESSED_IMAGES_FOLDER, 'processed_image.png')
@@ -76,6 +124,8 @@ def home():
                                    ocr_text=ocr_text, 
                                    original_file=original_file,
                                    parsed_data=parsed_data,
+                                   filled_pdf_path=filled_pdf_path,
+                                   tokens=tokens,
                                    processed_image_url=url_for('static', filename='processed_images/processed_image.png'))
     
     return render_template('upload.html')
