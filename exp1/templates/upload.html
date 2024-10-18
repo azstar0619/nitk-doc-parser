@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Fill PDF Form with OCR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Auto-Fill PDF Form with OCR</h1>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="file-drop">
+                <label>Drag and Drop First PDF (Template):</label>
+                <input type="file" name="file1" accept=".pdf,.png,.jpg,.jpeg" required>
+            </div>
+            <div class="file-drop">
+                <label>Drag and Drop Second PDF/Image (Source of Information):</label>
+                <input type="file" name="file2" accept=".pdf,.png,.jpg,.jpeg" required>
+            </div>
+            <button type="submit">Extract Text from Second File (OCR)</button>
+        </form>
+
+        {% if ocr_text %}
+        <h3>Original Second PDF/Image:</h3>
+        <p>{{ original_file }}</p>
+
+        <h3>Extracted OCR Text:</h3>
+        <pre>{{ ocr_text }}</pre>
+        {% endif %}
+    </div>
+</body>
+</html>

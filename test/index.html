@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload and Processing</title>
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- File Input and Dropbox UI -->
+    <div class="dropbox" id="dropbox1">Drop Template PDF here</div>
+    <input type="file" id="fileInput1" accept=".pdf" hidden>
+    <div id="fileInfo1"></div>
+
+    <div class="dropbox" id="dropbox2">Drop Info File (CSV or Image) here</div>
+    <input type="file" id="fileInput2" accept=".csv, .pdf, .png, .jpg" hidden>
+    <div id="fileInfo2"></div>
+
+    <button onclick="execute()">Execute</button>
+    <script src="script.js"></script>
+</body>
+</html>
