@@ -54,9 +54,16 @@
 
         <h3>Extracted OCR Text:</h3>
         <pre>{{ ocr_text }}</pre>
-        
-        <h3>Processed Image Preview (Increased Clarity):</h3>
-        <img src="{{ url_for('static', filename='processed_images/processed_image.png') }}" width="300" />
+
+        <h3>Processed Image Preview:</h3>
+        <img src="{{ processed_image_url }}" width="300" />
+
+        <h3>Parsed Data:</h3>
+        <ul>
+            {% for key, value in parsed_data.items() %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
         {% endif %}
     </div>
 </body>
