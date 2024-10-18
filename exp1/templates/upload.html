@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auto-Fill PDF Form with OCR</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        // Function to preview the original file selected by the user
+        function previewFile(input, previewId) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            
+            reader.onloadend = function() {
+                const preview = document.getElementById(previewId);
+                preview.src = reader.result;
+                preview.style.display = 'block'; // Show the image after loading
+            };
+            
+            if (file) {
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none'; // Hide the image if no file is selected
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -14,19 +33,30 @@
                 <label>Drag and Drop First PDF (Template):</label>
                 <input type="file" name="file1" accept=".pdf,.png,.jpg,.jpeg" required>
             </div>
+            
             <div class="file-drop">
                 <label>Drag and Drop Second PDF/Image (Source of Information):</label>
-                <input type="file" name="file2" accept=".pdf,.png,.jpg,.jpeg" required>
+                <input type="file" name="file2" accept=".pdf,.png,.jpg,.jpeg" required 
+                       onchange="previewFile(this, 'file-preview');">
             </div>
+
+            <div class="preview-container">
+                <label>Preview of Second File (Before Processing):</label>
+                <img id="file-preview" style="display:none;" width="200" />
+            </div>
+
             <button type="submit">Extract Text from Second File (OCR)</button>
         </form>
-
+        
         {% if ocr_text %}
         <h3>Original Second PDF/Image:</h3>
         <p>{{ original_file }}</p>
 
         <h3>Extracted OCR Text:</h3>
         <pre>{{ ocr_text }}</pre>
+        
+        <h3>Processed Image Preview (Increased Clarity):</h3>
+        <img src="{{ url_for('static', filename='processed_images/processed_image.png') }}" width="300" />
         {% endif %}
     </div>
 </body>

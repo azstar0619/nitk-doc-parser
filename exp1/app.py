@@ -1,54 +1,56 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, send_from_directory
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
-from PIL import Image
-import fitz  # PyMuPDF
-import io
-from pdf2image import convert_from_path
 
 app = Flask(__name__)
 
 # Path configurations
 UPLOAD_FOLDER = 'uploads'
+PROCESSED_FOLDER = 'static/processed_images'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['PROCESSED_FOLDER'] = PROCESSED_FOLDER
 
-# Make sure the upload folder exists
+# Make sure the folders exist
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(PROCESSED_FOLDER):
+    os.makedirs(PROCESSED_FOLDER)
 
 # Utility function to check if the file is allowed
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# OCR extraction from image
+# Preprocess image: sharpen, increase contrast, and reduce noise
+def preprocess_image(image_path):
+    img = Image.open(image_path)
+    
+    # Enhance sharpness
+    sharpness_enhancer = ImageEnhance.Sharpness(img)
+    img = sharpness_enhancer.enhance(2)  # Increase the sharpness by factor of 2
+    
+    # Increase the contrast
+    contrast_enhancer = ImageEnhance.Contrast(img)
+    img = contrast_enhancer.enhance(1.5)  # Increase contrast by factor of 1.5
+    
+    # Apply a slight blur to reduce noise
+    img = img.filter(ImageFilter.MedianFilter())
+    
+    # Save the processed image for preview
+    processed_image_path = os.path.join(app.config['PROCESSED_FOLDER'], 'processed_image.png')
+    img.save(processed_image_path)
+    
+    print(f"Processed image saved at: {processed_image_path}")  # Debugging output to check if the file is saved
+    return img
+
+# OCR extraction function
 def extract_text_from_image(image_path):
-    text = pytesseract.image_to_string(Image.open(image_path))
+    img = preprocess_image(image_path)
+    text = pytesseract.image_to_string(img)
     return text
-
-# OCR extraction from PDF using pdf2image
-def extract_text_from_pdf_with_pdf2image(pdf_path):
-    images = convert_from_path(pdf_path)
-    text = ""
-    for image in images:
-        text += pytesseract.image_to_string(image)
-    return text
-
-# OCR extraction from PDF using PyMuPDF
-def extract_text_from_pdf_with_pymupdf(pdf_path):
-    pdf_document = fitz.open(pdf_path)
-    recognized_text = ''
-    
-    for page_num in range(len(pdf_document)):
-        page = pdf_document.load_page(page_num)  # Load page
-        pix = page.get_pixmap()  # Render page to an image
-        img = Image.open(io.BytesIO(pix.tobytes()))  # Convert to PIL image
-        text = pytesseract.image_to_string(img, lang='eng')  # OCR the image
-        recognized_text += text + '\n'
-    
-    return recognized_text
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -71,19 +73,15 @@ def upload_file():
             file2.save(file2_path)
             
             # Perform OCR on the second file
-            ocr_text = ""
-            if filename2.rsplit('.', 1)[1].lower() in ['png', 'jpg', 'jpeg']:
-                ocr_text = extract_text_from_image(file2_path)
-            elif filename2.rsplit('.', 1)[1].lower() == 'pdf':
-                # Here you can choose between PyMuPDF and pdf2image
-                ocr_text = extract_text_from_pdf_with_pymupdf(file2_path)
-                # or you could use extract_text_from_pdf_with_pdf2image(file2_path)
-            else:
-                ocr_text = "Unsupported file type"
+            ocr_text = extract_text_from_image(file2_path)
             
             return render_template('upload.html', original_file=file2.filename, ocr_text=ocr_text)
     
     return render_template('upload.html')
+
+@app.route('/static/processed_images/<filename>')
+def send_processed_file(filename):
+    return send_from_directory(app.config['PROCESSED_FOLDER'], filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
