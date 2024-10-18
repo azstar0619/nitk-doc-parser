@@ -1,8 +1,12 @@
-Flask==2.0.3
-pdf2image==1.16.0
 spellchecker==0.4
 opencv-python-headless==4.5.5.64
 opencv-python==4.5.3.56
 pytesseract==0.3.8
 requests==2.26.0
-Pillow==8.3.2
+Flask==2.2.3
+pytesseract==0.3.10
+pdf2image==1.16.3
+Pillow==9.1.0
+werkzeug==2.2.3
+zlib
+

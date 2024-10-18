@@ -2,6 +2,7 @@ import os
 import pytesseract
 from flask import Flask, render_template, request, url_for
 from werkzeug.utils import secure_filename
+from pdf2image import convert_from_path
 from utils import parse_output  # Assuming parse_output is implemented in utils.py
 import logging
 
@@ -16,9 +17,23 @@ app.config['PROCESSED_IMAGES_FOLDER'] = PROCESSED_IMAGES_FOLDER
 
 logging.basicConfig(level=logging.DEBUG)
 
+# Function to check if the uploaded file is allowed
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Function to perform OCR on PDF by converting it to images first
+def ocr_from_pdf(pdf_path):
+    """
+    Converts PDF to images and performs OCR on all pages.
+    """
+    images = convert_from_path(pdf_path)
+    ocr_text = ''
+    for page_num, image in enumerate(images):
+        # Use pytesseract to extract text from each image (page)
+        ocr_text += pytesseract.image_to_string(image)
+    return ocr_text
+
+# Home route
 @app.route('/', methods=['GET', 'POST'])
 def home():
     ocr_text = None
@@ -37,9 +52,15 @@ def home():
             original_file = secure_filename(file2.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], original_file)
             file2.save(file_path)
-            
-            # Perform OCR on the second file (source of information)
-            ocr_text = pytesseract.image_to_string(file_path)
+
+            # Check if the file is a PDF
+            if file2.filename.rsplit('.', 1)[1].lower() == 'pdf':
+                # Perform OCR on the PDF (convert to image first)
+                ocr_text = ocr_from_pdf(file_path)
+            else:
+                # Perform OCR on the image (file)
+                ocr_text = pytesseract.image_to_string(file_path)
+
             logging.debug(f"OCR Text: {ocr_text}")
             
             # Parse the OCR text
@@ -59,5 +80,6 @@ def home():
     
     return render_template('upload.html')
 
+# Main application entry point
 if __name__ == '__main__':
     app.run(debug=True)
