@@ -21,9 +21,17 @@ def categorize_department(text: str) -> str:
     return predicted_department
 
 def preprocess_text(raw_text: str) -> str:
+    print(f"Original Text: {raw_text}")  # Print original text
     raw_text = "".join([char.lower() for char in raw_text if char not in string.punctuation])
-    tokenized_text = " ".join([lemmatizer.lemmatize(word) for word in re.split(r'\W+', raw_text) if word not in common_words])
+    print(f"Cleaned Text: {raw_text}")  # Print cleaned text (no punctuation, lowercased)
+    
+    # Tokenize and remove non-alphabetic tokens
+    tokenized_text = " ".join([lemmatizer.lemmatize(word) for word in re.split(r'\W+', raw_text) if word not in common_words and word.isalpha()])
+    print(f"Tokenized and Lemmatized Text: {tokenized_text}")  # Print tokenized and lemmatized text
     return tokenized_text
 
+# Apply preprocessing and print cleaned and tokenized text for each row
 dataframe["cleaned_text"] = dataframe["text"].apply(preprocess_text)
+
+# Fit the vectorizer on the cleaned text
 vectorizer.fit_transform(dataframe["cleaned_text"])

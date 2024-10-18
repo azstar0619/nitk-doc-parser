@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filled PDF Form</title>
+</head>
+<body>
+    <div class="container">
+        <h1>Filled PDF Form</h1>
+        <p>The form has been successfully filled. You can download the filled form using the link below:</p>
+        <a href="{{ url_for('download_file', filename=filled_pdf_path.split('/')[-1]) }}">Download the filled PDF</a>
+    </div>
+</body>
+</html>
